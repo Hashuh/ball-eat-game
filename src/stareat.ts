@@ -227,7 +227,7 @@ function main() {
             scale: gl.getUniformLocation(shaderProgram_particle.shaderProgram, "scale"),
             len_hei_ratio: gl.getUniformLocation(shaderProgram_particle.shaderProgram, "len_hei_ratio"),
             size: gl.getUniformLocation(shaderProgram_particle.shaderProgram, "size"),
-            alpha: gl.getUniformLocation(shaderProgram_particle.shaderProgram, "alpha"),
+            //alpha: gl.getUniformLocation(shaderProgram_particle.shaderProgram, "alpha"),
         },
     };
     //AI----------------------------------------------------end
@@ -487,12 +487,14 @@ function main() {
             last_cam_scale * (1.0 - alpha),
             max_scale
         );
+
         last_cam_scale = cam_scale;
 
 
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
         gl.useProgram(programInfo_rect.program);
+        gl.bindVertexArray(VAO_rect);
         
 
         //速度更新和渲染
@@ -538,8 +540,8 @@ function main() {
             gl.uniform2f(programInfo_particle.uniformLocations.pos_offset, particleOffsetX, particleOffsetY);
             gl.uniform1f(programInfo_particle.uniformLocations.len_hei_ratio, 1.0 * screen_height / screen_width);
             gl.uniform1f(programInfo_particle.uniformLocations.scale, cam_scale);
-            gl.uniform1f(programInfo_particle.uniformLocations.size, particle.size * cam_scale);
-            gl.uniform1f(programInfo_particle.uniformLocations.alpha, particle.life); // 使用生命值作为透明度
+            gl.uniform1f(programInfo_particle.uniformLocations.size, particle.size);
+            //gl.uniform1f(programInfo_particle.uniformLocations.alpha, particle.life); // 使用生命值作为透明度
             
             // 绘制粒子
             gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);

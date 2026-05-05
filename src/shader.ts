@@ -61,11 +61,11 @@ const fragment_particle_source: string = `#version 300 es
 	precision mediump float;
 	out vec4 FragColor;
 
-	uniform float alpha; // 透明度
+	//uniform float alpha; // 透明度
 
 	void main(){
 		// 粒子颜色，使用半透明的橙色/黄色表示推进器火焰
-		FragColor = vec4(1.0, 0.7, 0.3, alpha * 0.8);
+		FragColor = vec4(1.0, 0.7, 0.3, 1.0);
 	}
 	`;
 
