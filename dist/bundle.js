@@ -367,7 +367,6 @@ function main() {
                 pos_y: 0.0,
                 velo_x: 0.0,
                 velo_y: 0.0,
-                if_cal: false, //是否已经计算
                 if_exist: true
             });
         }
@@ -385,7 +384,6 @@ function main() {
                         pos_y: rand_pos_y,
                         velo_x: 0.0,
                         velo_y: 0.0,
-                        if_cal: false, //是否已经计算
                         if_exist: true
                     });
                     break;
@@ -411,9 +409,9 @@ function main() {
         //大小变化计算
         let num_star = star_array.length;
         for (let i = 0; i < num_star; i++) {
-            if (star_array[i].if_exist && (!star_array[i].if_cal))
+            if (star_array[i].if_exist)
                 for (let j = i + 1; j < num_star; j++) {
-                    if (star_array[j].if_exist && (!star_array[j].if_cal)) {
+                    if (star_array[j].if_exist) {
                         const dist_x = star_array[i].pos_x - star_array[j].pos_x;
                         const dist_y = star_array[i].pos_y - star_array[j].pos_y;
                         const distance_2 = dist_x * dist_x + dist_y * dist_y;
@@ -436,8 +434,6 @@ function main() {
                                 index_radius_smaller = i;
                             }
                             //判断是否完全吞并
-                            star_array[index_radius_larger].if_cal = true;
-                            star_array[index_radius_smaller].if_cal = true;
                             if (radius_larger >= distance) {
                                 star_array[index_radius_larger].radius = Math.sqrt(total_vol);
                                 star_array[index_radius_smaller].if_exist = false;
@@ -533,8 +529,6 @@ function main() {
             if (star_array[i].if_exist) {
                 star_array[i].pos_x += star_array[i].velo_x * deltaTime;
                 star_array[i].pos_y += star_array[i].velo_y * deltaTime;
-                //状态更新
-                star_array[i].if_cal = false;
                 //render
                 gl.uniform2f(programInfo_rect.uniformLocations.pos_offset, star_array[i].pos_x - cam_pos_x, star_array[i].pos_y - cam_pos_y);
                 gl.uniform1f(programInfo_rect.uniformLocations.len_hei_ratio, 1.0 * screen_height / screen_width);

@@ -7,7 +7,7 @@ interface star{
     pos_y:number;
     velo_x:number;
     velo_y:number;
-    if_cal:boolean;//是否已经计算
+    //if_cal:boolean;//是否已经计算
     if_exist:boolean;
 }
 
@@ -229,7 +229,6 @@ function main() {
                 pos_y:0.0,
                 velo_x:0.0,
                 velo_y:0.0,
-                if_cal:false,//是否已经计算
                 if_exist:true}
             );
         }
@@ -253,7 +252,6 @@ function main() {
                         pos_y:rand_pos_y,
                         velo_x:0.0,
                         velo_y:0.0,
-                        if_cal:false,//是否已经计算
                         if_exist:true}
                     );
 
@@ -288,10 +286,10 @@ function main() {
         let num_star:number = star_array.length;
         for(let i = 0;i < num_star;i ++)
         {
-            if(star_array[i].if_exist && (!star_array[i].if_cal))
+            if(star_array[i].if_exist)
                 for(let j = i + 1;j < num_star;j ++)
                 {
-                    if(star_array[j].if_exist && (!star_array[j].if_cal))
+                    if(star_array[j].if_exist)
                     {
                         const dist_x:number = star_array[i].pos_x - star_array[j].pos_x;
                         const dist_y:number = star_array[i].pos_y - star_array[j].pos_y;
@@ -324,8 +322,7 @@ function main() {
                             }
 
                             //判断是否完全吞并
-                            star_array[index_radius_larger].if_cal = true;
-                            star_array[index_radius_smaller].if_cal = true;
+
                             if(radius_larger >= distance)
                             {
                                 star_array[index_radius_larger].radius = Math.sqrt(total_vol);
@@ -475,10 +472,6 @@ function main() {
                 star_array[i].pos_x += star_array[i].velo_x * deltaTime;
                 star_array[i].pos_y += star_array[i].velo_y * deltaTime;
 
-                //状态更新
-                star_array[i].if_cal = false;
-
-                
 
 
                 //render
