@@ -73,6 +73,13 @@ function find_min_dist(star_array:Array<star>, pos_x:number, pos_y:number):numbe
     return min_dist;
 }
 
+//function normalize(x:number, y:number):
+
+function vec_mul(v1:Array<number>, v2:Array<number>):number
+{
+    return v1[0] * v2[1] - v1[1] * v2[0];
+}
+
 function main() {
         
     window.addEventListener("keydown", handle_keydown);
@@ -202,7 +209,8 @@ function main() {
     //param
     const max_init_radius:number = 0.3;
     const min_init_radius:number = 0.02;
-    const init_num_star:number = 100;
+    const init_num_star:number = 80;
+    const min_span:number = 0.005;//生成的两个圆表面的最小间隔
     //
     let star_array:Array<star> = new Array();
     //let num_star:number = init_num_star;
@@ -235,12 +243,12 @@ function main() {
 
                 const min_dist:number = find_min_dist(star_array, rand_pos_x, rand_pos_y);
 
-                if(min_dist >= min_init_radius)
+                if(min_dist - min_span >= min_init_radius)
                 {
                     //radius:Math.min(Math.random() * (min_dist - min_init_radius) + min_init_radius , max_init_radius),
                         
                     star_array.push({
-                        radius:Math.min(Math.random() * (min_dist - min_init_radius) + min_init_radius , max_init_radius),
+                        radius:Math.min(Math.random() * (min_dist - min_span - min_init_radius) + min_init_radius , max_init_radius),
                         pos_x:rand_pos_x,
                         pos_y:rand_pos_y,
                         velo_x:0.0,
@@ -361,16 +369,29 @@ function main() {
 		if(d_down == 1)
 			move_direction_x += 1.0;
 
+        //normalize
+        if(move_direction_x != 0.0 || move_direction_y != 0.0)
+        {
+            const move_direction_len:number = Math.sqrt(
+                move_direction_y * move_direction_y + 
+                move_direction_x * move_direction_x
+            );
+            move_direction_x /= move_direction_len;
+            move_direction_y /= move_direction_len;
+        }
+        
         //运动方向更新
         star_array[0].velo_x += move_direction_x * move_speed * deltaTime;
         star_array[0].velo_y += move_direction_y * move_speed * deltaTime;
 
         //粒子添加
+        const particle_life:number = 0.5;
+        const dist_apply_factor:number = 2.0;//喷气的作用范围系数 作用范围数倍于当前半径 
         if(move_direction_x != 0.0 || move_direction_y != 0.0)
         {
             const particle_threshold:number = 0.8;
             const particle_split:number = 0.1;//粒子散射系数
-            const particle_speed:number = 0.1;
+            const particle_speed:number = star_array[0].radius * dist_apply_factor / particle_life;
             if(Math.random() > particle_threshold)
             {
                 particle_Array.push({
@@ -382,6 +403,37 @@ function main() {
                     size: star_array[0].radius * 0.1  
                 });
             }
+
+
+            //喷气作用交互
+            for(let i = 0;i < num_star;i ++)
+            {
+                if(star_array[i].if_exist)
+                {
+                    const dest_x:number = star_array[i].pos_x - star_array[0].pos_x;//到目标的向量
+                    const dest_y:number = star_array[i].pos_y - star_array[0].pos_y;
+                    const dist_point_line:number = Math.abs(
+                        move_direction_x * (dest_y) -
+                        move_direction_y * (dest_x)
+                    );//叉乘 圆心与直线距离
+                    const dot_dir:number = -move_direction_x * dest_x - 
+                        move_direction_y * dest_y;//判断方向是否相同
+                    const dist_dest:number = Math.sqrt(dest_x * dest_x + dest_y * dest_y);//到目标距离
+                    
+                    if(dist_point_line < star_array[i].radius && 
+                        dot_dir > 0 && 
+                        dist_dest - star_array[i].radius < dist_apply_factor * star_array[0].radius)
+                    {
+                        //根据质量作用喷气效果
+                        const rho:number = 1000000.0;//密度
+                        const mass:number = star_array[i].radius * star_array[i].radius * rho;
+
+                        star_array[i].velo_x -= move_direction_x / mass * deltaTime;
+                        star_array[i].velo_y -= move_direction_y / mass * deltaTime;
+                    }
+                }
+            }
+                
         }
 
         
@@ -426,6 +478,10 @@ function main() {
                 //状态更新
                 star_array[i].if_cal = false;
 
+                
+
+
+                //render
                 gl.uniform2f(programInfo_rect.uniformLocations.pos_offset, 
                     star_array[i].pos_x-cam_pos_x, 
                     star_array[i].pos_y-cam_pos_y);
@@ -464,7 +520,7 @@ function main() {
         //移除过期粒子
         while(particle_Array[0] != undefined)
         {
-            if(particle_Array[0].life > 0.5)
+            if(particle_Array[0].life > particle_life)
             {
                 particle_Array.shift();
             }
