@@ -1,5 +1,5 @@
 import {shader} from './shader_class';
-import {vertice_rect_source, fragment_rect_source} from './shader';
+import {vertice_rect_source, fragment_rect_source, vertice_particle_source, fragment_particle_source} from './shader';
 
 interface star{
     radius:number;
@@ -10,6 +10,52 @@ interface star{
     if_cal:boolean;//是否已经计算
     if_exist:boolean;
 }
+
+// 粒子接口定义
+interface Particle {
+    pos_x: number;//起始位置
+    pos_y: number;
+    velo_x: number;//速度
+    velo_y: number;
+    life: number;       // 生命值（0.0-1.0）小于0时移除
+    size: number;       // 粒子大小
+}
+
+
+// FIFO队列实现，用于管理粒子生命周期
+// class FifoQueue<T> {
+//     items: T[];
+    
+//     constructor() {
+//         this.items = [];
+//     }
+    
+//     enqueue(element: T): void {
+//         this.items.push(element);
+//     }
+    
+//     dequeue(): T | undefined {
+//         return this.items.shift();
+//     }
+    
+//     front(): T | undefined {
+//         return this.items.length > 0 ? this.items[0] : undefined;
+//     }
+    
+//     isEmpty(): boolean {
+//         return this.items.length === 0;
+//     }
+    
+//     size(): number {
+//         return this.items.length;
+//     }
+    
+//     clear(): void {
+//         this.items = [];
+//     }
+    
+// }
+
 
 function find_min_dist(star_array:Array<star>, pos_x:number, pos_y:number):number
 {
@@ -71,6 +117,8 @@ function main() {
 
     //编译着色器
     const shaderProgram_rect = new shader(gl, vertice_rect_source, fragment_rect_source);
+    const shaderProgram_particle = new shader(gl, vertice_particle_source, fragment_particle_source);
+    
 
     //rect顶点属性
 	const programInfo_rect = {
@@ -85,6 +133,22 @@ function main() {
             len_hei_ratio: gl.getUniformLocation(shaderProgram_rect.shaderProgram, "len_hei_ratio"),
 		},
 	};
+
+    //particle顶点属性
+    const programInfo_particle = {
+        program: shaderProgram_particle.shaderProgram,
+        attribLocations: {
+            vertexPosition: gl.getAttribLocation(shaderProgram_particle.shaderProgram, "aPos"),
+        },
+        uniformLocations: {
+            pos_offset: gl.getUniformLocation(shaderProgram_particle.shaderProgram, "pos_offset"),
+            scale: gl.getUniformLocation(shaderProgram_particle.shaderProgram, "scale"),
+            len_hei_ratio: gl.getUniformLocation(shaderProgram_particle.shaderProgram, "len_hei_ratio"),
+            size: gl.getUniformLocation(shaderProgram_particle.shaderProgram, "size"),
+            //alpha: gl.getUniformLocation(shaderProgram_particle.shaderProgram, "alpha"),
+        },
+    };
+
 
     //顶点数据
     const VAO_rect = gl.createVertexArray();
@@ -108,6 +172,30 @@ function main() {
     {
         const rect_indices = [0, 2, 1, 0, 3, 2];
         gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(rect_indices), gl.STATIC_DRAW);
+    }
+
+    // 粒子顶点数据 (小矩形)
+    const VAO_particle = gl.createVertexArray();
+    gl.bindVertexArray(VAO_particle);
+    const VBO_particle = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, VBO_particle);
+    {
+        const particle_vertices = [
+            -0.5, -0.5,  // 左下角
+             0.5, -0.5,  // 右下角
+             0.5,  0.5,  // 右上角
+            -0.5,  0.5,  // 左上角
+        ]; // 顶点数据
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(particle_vertices), gl.STATIC_DRAW);
+
+        gl.vertexAttribPointer(programInfo_particle.attribLocations.vertexPosition, 2, gl.FLOAT, false, 0, 0);
+        gl.enableVertexAttribArray(programInfo_particle.attribLocations.vertexPosition);
+    }
+    const EBO_particle = gl.createBuffer();
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, EBO_particle);
+    {
+        const particle_indices = [0, 1, 2, 0, 2, 3]; // 两个三角形组成矩形
+        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(particle_indices), gl.STATIC_DRAW);
     }
 
 
@@ -166,6 +254,10 @@ function main() {
             }
         } 
     }
+
+    //粒子数组
+    let particle_Array:Array<Particle> = new Array();
+
 
     //渲染循环
     let then = 0.0;
@@ -257,15 +349,44 @@ function main() {
 
 
         //按键控制移动
+        let move_direction_x:number = 0.0;//控制运动方向
+        let move_direction_y:number = 0.0;
         const move_speed:number = 0.1;
         if(w_down == 1)
-			star_array[0].velo_y += move_speed * deltaTime;
+			move_direction_y += 1.0;
 		if(s_down == 1)
-			star_array[0].velo_y -= move_speed * deltaTime;
+			move_direction_y -= 1.0;
 		if(a_down == 1)
-			star_array[0].velo_x -= move_speed * deltaTime;
+			move_direction_x -= 1.0;
 		if(d_down == 1)
-			star_array[0].velo_x += move_speed * deltaTime;
+			move_direction_x += 1.0;
+
+        //运动方向更新
+        star_array[0].velo_x += move_direction_x * move_speed * deltaTime;
+        star_array[0].velo_y += move_direction_y * move_speed * deltaTime;
+
+        //粒子添加
+        if(move_direction_x != 0.0 || move_direction_y != 0.0)
+        {
+            const particle_threshold:number = 0.8;
+            const particle_split:number = 0.1;//粒子散射系数
+            const particle_speed:number = 0.1;
+            if(Math.random() > particle_threshold)
+            {
+                particle_Array.push({
+                    pos_x: star_array[0].pos_x,
+                    pos_y: star_array[0].pos_y,
+                    velo_x: (-move_direction_x + Math.random() * particle_split) * particle_speed,//速度
+                    velo_y: (-move_direction_y + Math.random() * particle_split) * particle_speed,
+                    life: 0.0,       // 生命值（0.0-1.0）大于0时移除
+                    size: star_array[0].radius * 0.1  
+                });
+            }
+        }
+
+        
+       
+
 
 
         const max_scale:number = 100.0;
@@ -279,12 +400,17 @@ function main() {
             last_cam_scale * (1.0 - alpha),
             max_scale
         );
+        //const cam_scale:number = 3.0;
         last_cam_scale = cam_scale;
-
 
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
+
+        
+
+
         gl.useProgram(programInfo_rect.program);
+        gl.bindVertexArray(VAO_rect);
         
 
         //速度更新和渲染
@@ -309,6 +435,47 @@ function main() {
                 gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
             }
         }
+
+
+        //粒子渲染
+        gl.useProgram(programInfo_particle.program);
+        gl.bindVertexArray(VAO_particle);
+        //粒子渲染
+        for(let i_particle = 0;i_particle < particle_Array.length;i_particle ++)
+        {
+            const particle:Particle = particle_Array[i_particle];
+            // 计算粒子相对于相机的位置
+            const particleOffsetX = particle.pos_x - cam_pos_x + particle.velo_x * particle.life;
+            const particleOffsetY = particle.pos_y - cam_pos_y + particle.velo_y * particle.life;
+            
+            // 设置粒子的统一变量
+            gl.uniform2f(programInfo_particle.uniformLocations.pos_offset, particleOffsetX, particleOffsetY);
+            gl.uniform1f(programInfo_particle.uniformLocations.len_hei_ratio, 1.0 * screen_height / screen_width);
+            gl.uniform1f(programInfo_particle.uniformLocations.scale, cam_scale);
+            gl.uniform1f(programInfo_particle.uniformLocations.size, particle.size);
+            //gl.uniform1f(programInfo_particle.uniformLocations.alpha, particle.life); // 使用生命值作为透明度
+            
+            // 绘制粒子
+            gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
+
+            //粒子生命更新
+            particle_Array[i_particle].life += deltaTime;
+        }
+        //移除过期粒子
+        while(particle_Array[0] != undefined)
+        {
+            if(particle_Array[0].life > 0.5)
+            {
+                particle_Array.shift();
+            }
+            else
+            {
+                break;
+            }
+        }
+
+
+
 
         requestAnimationFrame(render);
     }
