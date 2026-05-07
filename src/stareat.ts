@@ -9,6 +9,7 @@ interface star{
     velo_y:number;
     //if_cal:boolean;//是否已经计算
     if_exist:boolean;
+    time_random:number;//时间随机数
 }
 
 // 粒子接口定义
@@ -230,7 +231,8 @@ function main() {
                 pos_y:0.0,
                 velo_x:0.0,
                 velo_y:0.0,
-                if_exist:true}
+                if_exist:true,
+                time_random:0.0}
             );
         }
         else
@@ -253,7 +255,8 @@ function main() {
                         pos_y:rand_pos_y,
                         velo_x:0.0,
                         velo_y:0.0,
-                        if_exist:true}
+                        if_exist:true,
+                        time_random:Math.random() * 100.0}
                     );
 
                     break;
@@ -482,7 +485,7 @@ function main() {
                 gl.uniform1f(programInfo_rect.uniformLocations.len_hei_ratio, 1.0 * screen_height / screen_width);
                 gl.uniform1f(programInfo_rect.uniformLocations.scale, cam_scale);
                 gl.uniform1f(programInfo_rect.uniformLocations.radius, star_array[i].radius);
-                gl.uniform1f(programInfo_rect.uniformLocations.iTime, now);
+                gl.uniform1f(programInfo_rect.uniformLocations.iTime, now + star_array[i].time_random);
                 gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
             }
         }

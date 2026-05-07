@@ -42,71 +42,55 @@ const fragment_rect_source = `#version 300 es
 	//uniform sampler2D Tex_blur;
 
 	uniform float iTime;
-
-	// Star Nest by Pablo Roman Andrioli
-// License: MIT
-
-#define iterations 17
-#define formuparam 0.53
-
-#define volsteps 20
-#define stepsize 0.1
-
-#define zoom   0.800
-#define tile   0.850
-#define speed  0.010 
-
-#define brightness 0.0015
-#define darkmatter 0.300
-#define distfading 0.730
-#define saturation 0.850
+	uniform vec2 pos_offset;
 
 
-void mainImage( out vec4 fragColor, in vec2 uv, in float iTime)
-{
-	//get coords and direction
-	//vec2 uv=fragCoord.xy/iResolution.xy-.5;
-	//uv.y*=iResolution.y/iResolution.x;
-	vec3 dir=vec3(uv*zoom,1.);
-	float time=iTime*speed+.25;
+	float my_projection(in float x)
+	{
+		float cos_2theta = sqrt(1.0 - x * x);
 
-	//mouse rotation
-	// float a1=.5+iMouse.x/iResolution.x*2.;
-	// float a2=.8+iMouse.y/iResolution.y*2.;
-	// mat2 rot1=mat2(cos(a1),sin(a1),-sin(a1),cos(a1));
-	// mat2 rot2=mat2(cos(a2),sin(a2),-sin(a2),cos(a2));
-	// dir.xz*=rot1;
-	// dir.xy*=rot2;
-	vec3 from=vec3(1.,.5,0.5);
-	from+=vec3(time*2.,time,-2.);
-	// from.xz*=rot1;
-	// from.xy*=rot2;
-	
-	//volumetric rendering
-	float s=0.1,fade=1.;
-	vec3 v=vec3(0.);
-	for (int r=0; r<volsteps; r++) {
-		vec3 p=from+s*dir*.5;
-		p = abs(vec3(tile)-mod(p,vec3(tile*2.))); // tiling fold
-		float pa,a=pa=0.;
-		for (int i=0; i<iterations; i++) { 
-			p=abs(p)/dot(p,p)-formuparam; // the magic formula
-			a+=abs(length(p)-pa); // absolute sum of average change
-			pa=length(p);
-		}
-		float dm=max(0.,darkmatter-a*a*.001); //dark matter
-		a*=a*a; // add contrast
-		if (r>6) fade*=1.-dm; // dark matter, don't render near
-		//v+=vec3(dm,dm*.5,0.);
-		v+=fade;
-		v+=vec3(s,s*s,s*s*s*s)*a*brightness*fade; // coloring based on distance
-		fade*=distfading; // distance fading
-		s+=stepsize;
+		float sin_theta = sqrt((1.0 - cos_2theta) * 0.5) * sign(x);
+		float cos_theta = sqrt((1.0 + cos_2theta) * 0.5);
+
+		return sin_theta / cos_theta * 2.0;
 	}
-	v=mix(vec3(length(v)),v,saturation); //color adjust
-	fragColor = vec4(v*.02,1.);	
+
+
+	//向量积 归一化 函数 计算法向量
+	vec3 normal_cal(vec3 v1, vec3 v2){
+		vec3 result_norm;
 	
-}
+		result_norm.x = v1.y*v2.z-v1.z*v2.y;
+		result_norm.y = v1.z*v2.x-v1.x*v2.z;
+		result_norm.z = v1.x*v2.y-v1.y*v2.x;
+	
+		result_norm = normalize(result_norm);
+	
+		return result_norm;
+	}
+
+	//菲涅尔
+	float fresnelSchlick(float cosTheta, float F0)
+	{
+		return F0 + (1.0 - F0) * pow(1.0 - cosTheta, 5.0);
+	}
+
+	//法线分布函数
+	float D_GGX_TR(vec3 N, vec3 H, float a)
+	{
+		const float PI = 3.1415926;
+		
+		float a2     = a*a;
+		float NdotH  = max(dot(N, H), 0.0);
+		float NdotH2 = NdotH*NdotH;
+
+		float nom    = a2;
+		float denom  = (NdotH2 * (a2 - 1.0) + 1.0);
+		denom        = PI * denom * denom;
+
+		return nom / denom;
+	}
+
 
 	void main(){
 
@@ -116,11 +100,92 @@ void mainImage( out vec4 fragColor, in vec2 uv, in float iTime)
 			discard;
 		}
 
-		vec4 fromshadertoy;
-		vec2 uv = vec2((coord_tex.x + 1.0) * 0.5, (coord_tex.y + 1.0) * 0.5);
-		mainImage(fromshadertoy, uv, iTime);
+		//获取坐标投影映射
+		//目前使用简单平行投影
+		//vec2 aPos = coord_tex;
 
-		FragColor =  fromshadertoy;
+		//球极投影
+		vec2 aPos = vec2(my_projection(coord_tex.x), my_projection(coord_tex.y));
+
+		//计算波浪
+		float ampli = 0.0;//幅度
+		vec2 gradiant_xz = vec2(0.0, 0.0);//斜率临时变量
+		const float wave_direction[10] = float[10](1.0, 0.0, 
+										0.8, 0.6,
+										0.6, 0.8,
+										12.0/13.0, 5.0/13.0,
+										0.0, 1.0);
+		const float coord[6] = float[6](1.0, 1.0,
+								1.0, -1.0,
+								-1.0, 1.0);
+		const float freq_step = 1.12;//每次频率乘数
+		const float ampli_step = 0.85;
+		
+		float freq = 4.0;//频率
+		float maxampli = 0.07;//幅值
+
+		for(int i = 0;i < 32;i += 1){
+			vec2 samplepoint = -gradiant_xz * 0.02 + aPos;//采样点偏移 用于实现波浪推挤效果
+			
+			vec2 cur_direction = vec2(coord[(i * 2)%6] * wave_direction[(i * 2)%10],
+								coord[(i * 2 + 1)%6] * wave_direction[(i * 2 + 1)%10]);
+			
+			float para_tri = (samplepoint.x * cur_direction.x +samplepoint.y * cur_direction.y) * freq  + iTime * freq / 10.0;
+			//频率 幅度 更新
+			freq *= freq_step;
+			maxampli *= ampli_step;
+			
+			float tmp_sin = sin(para_tri);
+			float cur_ampli = maxampli * exp(tmp_sin - 1.0);//此次循环计算的幅度值
+			
+			ampli += cur_ampli;
+			
+			gradiant_xz.x += cur_ampli * freq * cur_direction.x * cos(para_tri);
+			gradiant_xz.y += cur_ampli * freq * cur_direction.y * cos(para_tri);
+		}
+
+		//平面上的法向量
+		vec3 normal_plane = normal_cal(vec3(0.0, gradiant_xz.y, -1.0), vec3(1.0, gradiant_xz.x, 0.0));
+
+
+		//旋转到球面上的法向量
+		float sin_theta = coord_tex.y;
+		float cos_theta = sqrt(1.0 - coord_tex.y * coord_tex.y);
+		float sin_phi = coord_tex.x;
+		float cos_phi = sqrt(1.0 - coord_tex.x * coord_tex.x);
+		mat3 rot_theta = mat3(1.0, 0.0, 0.0, 0.0, cos_theta, -sin_theta, 0.0, sin_theta, cos_theta);
+		mat3 rot_phi = mat3(cos_phi, 0.0, -sin_phi, 0.0, 1.0, 0.0, sin_phi, 0.0, cos_phi);
+		vec3 normal = rot_phi * rot_theta * vec3(normal_plane.x, normal_plane.z, normal_plane.y);
+
+		//光线计算
+		vec3 position = vec3(pos_offset, sqrt(1.0 - dist));//tmp
+
+		vec3 viewPos = vec3(0, 0, 2.0);//todo
+		
+		vec3 lightDir = vec3(0.7071, 0.0, 0.7071);//光源方向
+		//vec3 reflectDir = reflect(-lightDir, normal);
+		vec3 viewDir = normalize(viewPos - position);
+		vec3 half_vec = normalize(lightDir + viewDir);//计算半程向量
+		float mir = 0.1 * D_GGX_TR(-normal, half_vec, 0.01);
+		//修改 增加菲涅尔效应
+		mir = mir * fresnelSchlick(dot(viewDir, -normal), 0.02);
+		
+		//float spec = pow(max(dot(viewDir, reflectDir), 0.0), 64.0) * 0.5 + 0.5;
+		float env = max(dot(lightDir, -normal), 0.0);
+		float back_env = 0.1;
+		//float color_result = env*1.0 + mir*1.0;
+		
+		
+		//高度渐变 模拟散射
+		float height_wave = ampli + 0.35 - 0.5;
+		
+		vec3 color_tmp = vec3(back_env + env * 0.04 + mir - 1.4 * height_wave, 
+					back_env + env * 0.277 + mir + 1.5 * height_wave, 
+					back_env + env * 0.37 + mir + 0.75 * height_wave);
+
+
+
+		FragColor = vec4(color_tmp, 1.0);
 	}
 	`;
 //AI----------------------------------------------------
@@ -440,7 +505,8 @@ function main() {
                 pos_y: 0.0,
                 velo_x: 0.0,
                 velo_y: 0.0,
-                if_exist: true
+                if_exist: true,
+                time_random: 0.0
             });
         }
         else {
@@ -457,7 +523,8 @@ function main() {
                         pos_y: rand_pos_y,
                         velo_x: 0.0,
                         velo_y: 0.0,
-                        if_exist: true
+                        if_exist: true,
+                        time_random: Math.random() * 100.0
                     });
                     break;
                 }
@@ -607,7 +674,7 @@ function main() {
                 gl.uniform1f(programInfo_rect.uniformLocations.len_hei_ratio, 1.0 * screen_height / screen_width);
                 gl.uniform1f(programInfo_rect.uniformLocations.scale, cam_scale);
                 gl.uniform1f(programInfo_rect.uniformLocations.radius, star_array[i].radius);
-                gl.uniform1f(programInfo_rect.uniformLocations.iTime, now);
+                gl.uniform1f(programInfo_rect.uniformLocations.iTime, now + star_array[i].time_random);
                 gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
             }
         }
