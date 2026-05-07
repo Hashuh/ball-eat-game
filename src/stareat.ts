@@ -138,7 +138,8 @@ function main() {
 			scale: gl.getUniformLocation(shaderProgram_rect.shaderProgram, "scale"),
             radius: gl.getUniformLocation(shaderProgram_rect.shaderProgram, "radius"),
             len_hei_ratio: gl.getUniformLocation(shaderProgram_rect.shaderProgram, "len_hei_ratio"),
-		},
+            iTime: gl.getUniformLocation(shaderProgram_rect.shaderProgram, "iTime"),
+        },
 	};
 
     //particle顶点属性
@@ -445,7 +446,7 @@ function main() {
         //相机放大倍数
         const alpha:number = 0.01;//滤波器系数
         const cam_scale:number = Math.min(
-            (0.3 * 1.0 / star_array[0].radius) * alpha + 
+            (0.2 * 1.0 / star_array[0].radius) * alpha * Math.exp(star_array[0].radius) + 
             last_cam_scale * (1.0 - alpha),
             max_scale
         );
@@ -481,6 +482,7 @@ function main() {
                 gl.uniform1f(programInfo_rect.uniformLocations.len_hei_ratio, 1.0 * screen_height / screen_width);
                 gl.uniform1f(programInfo_rect.uniformLocations.scale, cam_scale);
                 gl.uniform1f(programInfo_rect.uniformLocations.radius, star_array[i].radius);
+                gl.uniform1f(programInfo_rect.uniformLocations.iTime, now);
                 gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
             }
         }
