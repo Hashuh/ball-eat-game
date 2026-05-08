@@ -386,12 +386,12 @@ function main() {
         star_array[0].velo_y += move_direction_y * move_speed * deltaTime;
 
         //粒子添加
-        const particle_life:number = 0.5;
+        const particle_life:number = 0.2;
         const dist_apply_factor:number = 2.0;//喷气的作用范围系数 作用范围数倍于当前半径 
         if(move_direction_x != 0.0 || move_direction_y != 0.0)
         {
-            const particle_threshold:number = 0.8;
-            const particle_split:number = 0.1;//粒子散射系数
+            const particle_threshold:number = 0.5;
+            const particle_split:number = 0.2;//粒子散射系数
             const particle_speed:number = star_array[0].radius * dist_apply_factor / particle_life;
             if(Math.random() > particle_threshold)
             {
@@ -401,7 +401,7 @@ function main() {
                     velo_x: (-move_direction_x + Math.random() * particle_split) * particle_speed,//速度
                     velo_y: (-move_direction_y + Math.random() * particle_split) * particle_speed,
                     life: 0.0,       // 生命值（0.0-1.0）大于0时移除
-                    size: star_array[0].radius * 0.1  
+                    size: star_array[0].radius * 0.07  
                 });
             }
 

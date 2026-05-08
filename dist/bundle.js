@@ -43,11 +43,12 @@ const fragment_rect_source = `#version 300 es
 
 	uniform float iTime;
 	uniform vec2 pos_offset;
+	uniform float radius;
 
 
 	float my_projection(in float x)
 	{
-		float cos_2theta = sqrt(1.0 - x * x);
+		float cos_2theta = sqrt(abs(1.0 - x * x));
 
 		float sin_theta = sqrt((1.0 - cos_2theta) * 0.5) * sign(x);
 		float cos_theta = sqrt((1.0 + cos_2theta) * 0.5);
@@ -95,6 +96,24 @@ const fragment_rect_source = `#version 300 es
 	void main(){
 
 		float dist = coord_tex.x * coord_tex.x + coord_tex.y * coord_tex.y;//距离中心距离
+		
+		// float bound_x = atan(coord_tex.x / coord_tex.y) + (-sign(coord_tex.y) * 0.5 + 0.5) * 3.1415926;
+
+		// float ampli_bound = 0.0;//用于边界波浪
+		// float maxampli_bound = 0.07;//幅值
+		// float freq_bound = 4.0;
+		// for(int i = 0;i < 16;i += 1){
+		// 	float para_tri = (bound_x * radius * 20.0) * freq_bound  + iTime * freq_bound / 10.0;
+		// 	//频率 幅度 更新
+		// 	freq_bound *= 1.12;
+		// 	maxampli_bound *= 0.85;
+			
+		// 	float tmp_sin = sin(para_tri);
+		// 	float cur_ampli = maxampli_bound * exp(tmp_sin - 1.0);//此次循环计算的幅度值
+			
+		// 	ampli_bound += cur_ampli;
+		// }
+
 		if(dist > 1.0)
 		{
 			discard;
@@ -105,7 +124,7 @@ const fragment_rect_source = `#version 300 es
 		//vec2 aPos = coord_tex;
 
 		//球极投影
-		vec2 aPos = vec2(my_projection(coord_tex.x), my_projection(coord_tex.y));
+		vec2 aPos = vec2(my_projection(coord_tex.x), my_projection(coord_tex.y)) * radius * 3.0;
 
 		//计算波浪
 		float ampli = 0.0;//幅度
@@ -150,15 +169,15 @@ const fragment_rect_source = `#version 300 es
 
 		//旋转到球面上的法向量
 		float sin_theta = coord_tex.y;
-		float cos_theta = sqrt(1.0 - coord_tex.y * coord_tex.y);
+		float cos_theta = sqrt(abs(1.0 - coord_tex.y * coord_tex.y));
 		float sin_phi = coord_tex.x;
-		float cos_phi = sqrt(1.0 - coord_tex.x * coord_tex.x);
+		float cos_phi = sqrt(abs(1.0 - coord_tex.x * coord_tex.x));
 		mat3 rot_theta = mat3(1.0, 0.0, 0.0, 0.0, cos_theta, -sin_theta, 0.0, sin_theta, cos_theta);
 		mat3 rot_phi = mat3(cos_phi, 0.0, -sin_phi, 0.0, 1.0, 0.0, sin_phi, 0.0, cos_phi);
 		vec3 normal = rot_phi * rot_theta * vec3(normal_plane.x, normal_plane.z, normal_plane.y);
 
 		//光线计算
-		vec3 position = vec3(pos_offset, sqrt(1.0 - dist));//tmp
+		vec3 position = vec3(pos_offset, sqrt(abs(1.0 - dist)));//tmp
 
 		vec3 viewPos = vec3(0, 0, 2.0);//todo
 		
@@ -214,8 +233,8 @@ const fragment_particle_source = `#version 300 es
 	//uniform float alpha; // 透明度
 
 	void main(){
-		// 粒子颜色，使用半透明的橙色/黄色表示推进器火焰
-		FragColor = vec4(1.0, 0.7, 0.3, 1.0);
+		// 粒子颜色
+		FragColor = vec4(1.0, 1.0, 1.0, 1.0);
 	}
 	`;
 //AI----------------------------------------------------end
@@ -613,11 +632,11 @@ function main() {
         star_array[0].velo_x += move_direction_x * move_speed * deltaTime;
         star_array[0].velo_y += move_direction_y * move_speed * deltaTime;
         //粒子添加
-        const particle_life = 0.5;
+        const particle_life = 0.2;
         const dist_apply_factor = 2.0; //喷气的作用范围系数 作用范围数倍于当前半径 
         if (move_direction_x != 0.0 || move_direction_y != 0.0) {
-            const particle_threshold = 0.8;
-            const particle_split = 0.1; //粒子散射系数
+            const particle_threshold = 0.5;
+            const particle_split = 0.2; //粒子散射系数
             const particle_speed = star_array[0].radius * dist_apply_factor / particle_life;
             if (Math.random() > particle_threshold) {
                 particle_Array.push({
@@ -626,7 +645,7 @@ function main() {
                     velo_x: (-move_direction_x + Math.random() * particle_split) * particle_speed, //速度
                     velo_y: (-move_direction_y + Math.random() * particle_split) * particle_speed,
                     life: 0.0, // 生命值（0.0-1.0）大于0时移除
-                    size: star_array[0].radius * 0.1
+                    size: star_array[0].radius * 0.07
                 });
             }
             //喷气作用交互
