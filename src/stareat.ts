@@ -652,8 +652,8 @@ function handle_touchstart(event:any) {
     else if(touches[0] != undefined)
     {
         if_touch = true;
-        const relative_x:number = -touches[0].clientX + screen_width / 2.0;
-        const relative_y:number = touches[0].clientY - screen_height / 2.0;
+        const relative_x:number = touches[0].clientX - screen_width / 2.0;
+        const relative_y:number = -touches[0].clientY + screen_height / 2.0;
 
         const relative_len:number = Math.sqrt(relative_x * relative_x + 
             relative_y * relative_y);
@@ -695,8 +695,8 @@ function handle_touchmove(event:any) {
     else if(touches[0] != undefined)
     {
         if_touch = true;
-        const relative_x:number = -touches[0].clientX + screen_width / 2.0;
-        const relative_y:number = touches[0].clientY - screen_height / 2.0;
+        const relative_x:number = touches[0].clientX - screen_width / 2.0;
+        const relative_y:number = -touches[0].clientY + screen_height / 2.0;
 
         const relative_len:number = Math.sqrt(relative_x * relative_x + 
             relative_y * relative_y);
