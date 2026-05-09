@@ -209,7 +209,7 @@ function main() {
 
 
     //param
-    const max_init_radius:number = 0.3;
+    const max_init_radius:number = 0.2;
     const min_init_radius:number = 0.02;
     const init_num_star:number = 80;
     const min_span:number = 0.005;//生成的两个圆表面的最小间隔
@@ -299,13 +299,14 @@ function main() {
                         const dist_y:number = star_array[i].pos_y - star_array[j].pos_y;
                         const distance_2:number = dist_x * dist_x + dist_y * dist_y;
                         const distance:number = Math.sqrt(distance_2);
-
+                       
                         //解方程计算 保持两者总面积不变
                         if(star_array[i].radius + star_array[j].radius > distance)
                         {
-                            const total_vol:number = star_array[i].radius * star_array[i].radius +
-                                                star_array[j].radius * star_array[j].radius;
-                            const in_sqrt:number = 8.0 * total_vol - 4.0 * distance_2;
+                            const total_vol:number = star_array[i].radius * star_array[i].radius * star_array[i].radius +
+                                                star_array[j].radius * star_array[j].radius * star_array[j].radius;
+                            const in_sqrt:number = -3.0 * distance_2 * distance_2 + 
+                                12.0 * total_vol * distance;
 
                             let result_sqrt:number = 0.0;
                             if(in_sqrt > 0)
@@ -314,7 +315,7 @@ function main() {
                             }
 
                             //解方程结果
-                            const radius_larger:number = (2.0 * distance + result_sqrt) / 4.0;
+                            const radius_larger:number = (3.0 * distance_2 + result_sqrt) / (6.0 * distance) ;
 
                             
                             let index_radius_larger:number = i;
@@ -329,7 +330,7 @@ function main() {
 
                             if(radius_larger >= distance)
                             {
-                                star_array[index_radius_larger].radius = Math.sqrt(total_vol);
+                                star_array[index_radius_larger].radius = Math.pow(total_vol, 1.0 / 3.0);
 
                                 star_array[index_radius_smaller].if_exist = false;
                             }

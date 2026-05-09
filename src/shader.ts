@@ -114,7 +114,7 @@ const fragment_rect_source: string = `#version 300 es
 		//计算波浪
 		float ampli = 0.0;//幅度
 		vec2 gradiant_xz = vec2(0.0, 0.0);//斜率临时变量
-		const float wave_direction[10] = float[10](1.0, 0.0, 
+		const float wave_direction[10] = float[10](0.9, 0.43, 
 										0.8, 0.6,
 										0.6, 0.8,
 										12.0/13.0, 5.0/13.0,
@@ -128,7 +128,7 @@ const fragment_rect_source: string = `#version 300 es
 		float freq = 4.0;//频率
 		float maxampli = 0.07;//幅值
 
-		for(int i = 0;i < 32;i += 1){
+		for(int i = 0;i < 24;i += 1){
 			vec2 samplepoint = -gradiant_xz * 0.02 + aPos;//采样点偏移 用于实现波浪推挤效果
 			
 			vec2 cur_direction = vec2(coord[(i * 2)%6] * wave_direction[(i * 2)%10],

@@ -129,7 +129,7 @@ const fragment_rect_source = `#version 300 es
 		//计算波浪
 		float ampli = 0.0;//幅度
 		vec2 gradiant_xz = vec2(0.0, 0.0);//斜率临时变量
-		const float wave_direction[10] = float[10](1.0, 0.0, 
+		const float wave_direction[10] = float[10](0.9, 0.43, 
 										0.8, 0.6,
 										0.6, 0.8,
 										12.0/13.0, 5.0/13.0,
@@ -143,7 +143,7 @@ const fragment_rect_source = `#version 300 es
 		float freq = 4.0;//频率
 		float maxampli = 0.07;//幅值
 
-		for(int i = 0;i < 32;i += 1){
+		for(int i = 0;i < 24;i += 1){
 			vec2 samplepoint = -gradiant_xz * 0.02 + aPos;//采样点偏移 用于实现波浪推挤效果
 			
 			vec2 cur_direction = vec2(coord[(i * 2)%6] * wave_direction[(i * 2)%10],
@@ -507,7 +507,7 @@ function main() {
         gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(particle_indices), gl.STATIC_DRAW);
     }
     //param
-    const max_init_radius = 0.3;
+    const max_init_radius = 0.2;
     const min_init_radius = 0.02;
     const init_num_star = 80;
     const min_span = 0.005; //生成的两个圆表面的最小间隔
@@ -577,15 +577,16 @@ function main() {
                         const distance = Math.sqrt(distance_2);
                         //解方程计算 保持两者总面积不变
                         if (star_array[i].radius + star_array[j].radius > distance) {
-                            const total_vol = star_array[i].radius * star_array[i].radius +
-                                star_array[j].radius * star_array[j].radius;
-                            const in_sqrt = 8.0 * total_vol - 4.0 * distance_2;
+                            const total_vol = star_array[i].radius * star_array[i].radius * star_array[i].radius +
+                                star_array[j].radius * star_array[j].radius * star_array[j].radius;
+                            const in_sqrt = -3.0 * distance_2 * distance_2 +
+                                12.0 * total_vol * distance;
                             let result_sqrt = 0.0;
                             if (in_sqrt > 0) {
                                 result_sqrt = Math.sqrt(in_sqrt);
                             }
                             //解方程结果
-                            const radius_larger = (2.0 * distance + result_sqrt) / 4.0;
+                            const radius_larger = (3.0 * distance_2 + result_sqrt) / (6.0 * distance);
                             let index_radius_larger = i;
                             let index_radius_smaller = j;
                             if (star_array[i].radius < star_array[j].radius) {
@@ -594,7 +595,7 @@ function main() {
                             }
                             //判断是否完全吞并
                             if (radius_larger >= distance) {
-                                star_array[index_radius_larger].radius = Math.sqrt(total_vol);
+                                star_array[index_radius_larger].radius = Math.pow(total_vol, 1.0 / 3.0);
                                 star_array[index_radius_smaller].if_exist = false;
                             }
                             else {
