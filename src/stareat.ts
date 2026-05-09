@@ -81,19 +81,25 @@ function vec_mul(v1:Array<number>, v2:Array<number>):number
     return v1[0] * v2[1] - v1[1] * v2[0];
 }
 
+let screen_width:number = window.innerWidth;
+let screen_height:number = window.innerHeight;
+
 function main() {
         
     window.addEventListener("keydown", handle_keydown);
     window.addEventListener("keyup", handle_keyup);
 
     //像素大小初始化
-    let screen_width = window.innerWidth;
-    let screen_height = window.innerHeight;
+    screen_width = window.innerWidth;
+    screen_height = window.innerHeight;
     const canvas = document.querySelector("#glcanvas") as HTMLCanvasElement;
     if(canvas)
     {
         canvas.width = screen_width;
         canvas.height = screen_height;
+        canvas.addEventListener("touchstart", handle_touchstart);
+        canvas.addEventListener("touchmove", handle_touchmove);
+        canvas.addEventListener("touchend", handle_touchend);
     }
 
 
@@ -226,7 +232,7 @@ function main() {
         if(i == 0)
         {
             star_array.push({
-                radius:0.02,
+                radius:0.01,
                 pos_x:0.0,
                 pos_y:0.0,
                 velo_x:0.0,
@@ -272,6 +278,7 @@ function main() {
     //渲染循环
     let then = 0.0;
     let last_cam_scale = 0.0;
+    let zoom_cam = 1.0;
     function render(now:number) {
         if(!gl)
         {
@@ -363,13 +370,17 @@ function main() {
         let move_direction_y:number = 0.0;
         const move_speed:number = 0.1;
         if(w_down == 1)
-			move_direction_y += 1.0;
+			move_direction_y = 1.0;
 		if(s_down == 1)
-			move_direction_y -= 1.0;
+			move_direction_y = -1.0;
 		if(a_down == 1)
-			move_direction_x -= 1.0;
+			move_direction_x = -1.0;
 		if(d_down == 1)
-			move_direction_x += 1.0;
+			move_direction_x = 1.0;
+        if(add_down == 1)
+            zoom_cam = Math.min(10.0, zoom_cam + 0.01);
+        if(sub_down == 1)
+            zoom_cam = Math.max(0.1, zoom_cam - 0.01);
 
         //normalize
         if(move_direction_x != 0.0 || move_direction_y != 0.0)
@@ -381,6 +392,14 @@ function main() {
             move_direction_x /= move_direction_len;
             move_direction_y /= move_direction_len;
         }
+
+        //触屏判断
+        if(if_touch)
+        {
+            move_direction_x = move_touch_x;
+            move_direction_y = move_touch_y;
+        }
+
         
         //运动方向更新
         star_array[0].velo_x += move_direction_x * move_speed * deltaTime;
@@ -448,6 +467,8 @@ function main() {
         const cam_pos_x:number = star_array[0].pos_x;
         const cam_pos_y:number = star_array[0].pos_y;
         //相机放大倍数
+        zoom_cam *= zoom_cam_factor;
+        zoom_cam_factor = 1.0;
         const alpha:number = 0.01;//滤波器系数
         const cam_scale:number = Math.min(
             (0.2 * 1.0 / star_array[0].radius) * alpha * Math.exp(star_array[0].radius) + 
@@ -484,7 +505,7 @@ function main() {
                     star_array[i].pos_x-cam_pos_x, 
                     star_array[i].pos_y-cam_pos_y);
                 gl.uniform1f(programInfo_rect.uniformLocations.len_hei_ratio, 1.0 * screen_height / screen_width);
-                gl.uniform1f(programInfo_rect.uniformLocations.scale, cam_scale);
+                gl.uniform1f(programInfo_rect.uniformLocations.scale, cam_scale * zoom_cam);
                 gl.uniform1f(programInfo_rect.uniformLocations.radius, star_array[i].radius);
                 gl.uniform1f(programInfo_rect.uniformLocations.iTime, now + star_array[i].time_random);
                 gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
@@ -506,7 +527,7 @@ function main() {
             // 设置粒子的统一变量
             gl.uniform2f(programInfo_particle.uniformLocations.pos_offset, particleOffsetX, particleOffsetY);
             gl.uniform1f(programInfo_particle.uniformLocations.len_hei_ratio, 1.0 * screen_height / screen_width);
-            gl.uniform1f(programInfo_particle.uniformLocations.scale, cam_scale);
+            gl.uniform1f(programInfo_particle.uniformLocations.scale, cam_scale * zoom_cam);
             gl.uniform1f(programInfo_particle.uniformLocations.size, particle.size);
             //gl.uniform1f(programInfo_particle.uniformLocations.alpha, particle.life); // 使用生命值作为透明度
             
@@ -540,11 +561,25 @@ function main() {
 }
 
 
+let move_touch_x:number = 0.0;//控制运动方向
+let move_touch_y:number = 0.0;
+let if_touch:boolean = false;
+
+//用于放大缩小的触点坐标
+// let zoom_touch_x0:number = 0.0;
+// let zoom_touch_y0:number = 0.0;
+// let zoom_touch_x1:number = 0.0;
+// let zoom_touch_y1:number = 0.0;
+let zoom_touch_dist:number = 0.0;
+let zoom_cam_factor:number = 1.0;
+
 
 let w_down = 0;
 let s_down = 0;
 let a_down = 0;
 let d_down = 0;
+let add_down = 0;
+let sub_down = 0;
 function handle_keydown(event:any){
 	switch(event.code){
 		case "KeyW":
@@ -559,6 +594,12 @@ function handle_keydown(event:any){
 		case "KeyD":
 		d_down = 1;
 		break;
+        case "KeyI":
+        sub_down = 1;
+        break;
+        case "KeyK":
+        add_down = 1;
+        break;
 		
 	}
 }
@@ -576,8 +617,105 @@ function handle_keyup(event:any){
 		case "KeyD":
 		d_down = 0;
 		break;
-		
+		case "KeyI":
+        sub_down = 0;
+        break;
+        case "KeyK":
+        add_down = 0;
+        break;
 	}
+}
+
+
+function handle_touchstart(event:any) {
+
+    event.preventDefault() 
+
+	let touches = event.targetTouches;
+	let num_touches:number = touches.length;
+
+	// for (let i = 0; i < num_touches; i += 1) {
+	// 	add_firework(touches[i].clientX / screen_width);
+	// }
+    if(num_touches > 1)
+    {
+        if_touch = false;
+        // zoom_touch_x0 = touches[0].clientX;
+        // zoom_touch_y0 = touches[0].clientY;
+
+        // zoom_touch_x1 = touches[1].clientX;
+        // zoom_touch_y1 = touches[1].clientY;
+
+        zoom_touch_dist = Math.sqrt(Math.pow(touches[0].clientX - touches[1].clientX, 2) +
+            Math.pow(touches[0].clientY - touches[1].clientY, 2));
+    }
+    else if(touches[0] != undefined)
+    {
+        if_touch = true;
+        const relative_x:number = -touches[0].clientX + screen_width / 2.0;
+        const relative_y:number = touches[0].clientY - screen_height / 2.0;
+
+        const relative_len:number = Math.sqrt(relative_x * relative_x + 
+            relative_y * relative_y);
+
+        if(relative_len > 0.0)
+        {
+            move_touch_x = relative_x / relative_len;
+            move_touch_y = relative_y / relative_len;
+        }
+        
+    }
+
+}
+
+function handle_touchmove(event:any) {
+
+    event.preventDefault() 
+
+	let touches = event.targetTouches;
+	let num_touches:number = touches.length;
+
+	// for (let i = 0; i < num_touches; i += 1) {
+	// 	add_firework(touches[i].clientX / screen_width);
+	// }
+    if(num_touches > 1)
+    {
+        let zoom_touch_dist_new:number = Math.sqrt(Math.pow(touches[0].clientX - touches[1].clientX, 2) +
+            Math.pow(touches[0].clientY - touches[1].clientY, 2));
+
+        zoom_cam_factor = 1.0 * zoom_touch_dist_new / zoom_touch_dist;
+
+        zoom_touch_dist = zoom_touch_dist_new;
+        // zoom_touch_x0 = touches[0].clientX;
+        // zoom_touch_y0 = touches[0].clientY;
+
+        // zoom_touch_x1 = touches[1].clientX;
+        // zoom_touch_y1 = touches[1].clientY;
+    }
+    else if(touches[0] != undefined)
+    {
+        if_touch = true;
+        const relative_x:number = -touches[0].clientX + screen_width / 2.0;
+        const relative_y:number = touches[0].clientY - screen_height / 2.0;
+
+        const relative_len:number = Math.sqrt(relative_x * relative_x + 
+            relative_y * relative_y);
+
+        if(relative_len > 0.0)
+        {
+            move_touch_x = relative_x / relative_len;
+            move_touch_y = relative_y / relative_len;
+        }
+        
+    }
+
+}
+
+function handle_touchend(event:any) {
+	//let touches = event.changedTouches;
+    event.preventDefault() 
+
+    if_touch = false;
 }
 
 //事件监听

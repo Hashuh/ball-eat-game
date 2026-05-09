@@ -109,7 +109,7 @@ const fragment_rect_source: string = `#version 300 es
 		//vec2 aPos = coord_tex;
 
 		//球极投影
-		vec2 aPos = vec2(my_projection(coord_tex.x), my_projection(coord_tex.y)) * radius * 3.0;
+		vec2 aPos = vec2(my_projection(coord_tex.x), my_projection(coord_tex.y)) * radius * 5.0;
 
 		//计算波浪
 		float ampli = 0.0;//幅度
